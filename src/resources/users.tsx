@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Button,
   Datagrid,
@@ -156,6 +156,176 @@ const GrantDialog = ({ userId, onDone }: { userId: string; onDone: () => void })
   );
 };
 
+/**
+ * Cancel / suspend / reinstate / extend a grant.
+ *
+ * Every one of these needs a reason (the API requires it) and every one is
+ * written into the grant's history, so an operator can later answer "why does
+ * this person have access". Without these buttons a mis-grant could not be
+ * undone at all: re-granting does not replace the old row, it burns another one.
+ */
+type GrantAction = 'cancel' | 'suspend' | 'reinstate' | 'extend';
+
+const ACTION_COPY: Record<GrantAction, { title: string; verb: string; danger?: boolean }> = {
+  cancel: { title: 'Cancel this plan', verb: 'Cancel plan', danger: true },
+  suspend: { title: 'Suspend this plan', verb: 'Suspend', danger: true },
+  reinstate: { title: 'Reinstate this plan', verb: 'Reinstate' },
+  extend: { title: 'Extend this plan', verb: 'Extend' },
+};
+
+const GrantActionDialog = ({
+  grant,
+  action,
+  onClose,
+  onDone,
+}: {
+  grant: any;
+  action: GrantAction | null;
+  onClose: () => void;
+  onDone: () => void;
+}) => {
+  const notify = useNotify();
+  const [reason, setReason] = useState('');
+  const [days, setDays] = useState('30');
+  const [expiresOn, setExpiresOn] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!action) return;
+    setReason('');
+    setDays('30');
+    // Reinstating needs an explicit new end date; default to a month out so the
+    // operator adjusts rather than invents one from nothing.
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 30);
+    setExpiresOn(soon.toISOString().slice(0, 10));
+  }, [action]);
+
+  if (!action) return null;
+  const copy = ACTION_COPY[action];
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = { reason };
+      // The API takes an absolute end date for both. "Extend by N days" is the
+      // action an operator actually wants, so the date is computed from the
+      // grant's current end rather than typed out.
+      if (action === 'extend') {
+        const end = new Date(grant.expiresOn);
+        end.setDate(end.getDate() + Number(days));
+        body.expiresOn = end.toISOString();
+      }
+      if (action === 'reinstate') body.expiresOn = new Date(expiresOn).toISOString();
+
+      await request(`/admin/grants/${grant.id}/${action}`, { method: 'POST', body });
+      notify(`${copy.verb} done`, { type: 'success' });
+      onClose();
+      onDone();
+    } catch (err) {
+      notify((err as Error).message, { type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>{copy.title}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {grant.plan?.name} · currently {grant.status} · ends{' '}
+            {new Date(grant.expiresOn).toLocaleDateString()}
+          </Typography>
+
+          {action === 'extend' ? (
+            <MuiTextField
+              label="Extra days"
+              type="number"
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
+              fullWidth
+              helperText={
+                Number(days)
+                  ? `New end date: ${new Date(
+                      new Date(grant.expiresOn).getTime() + Number(days) * 86400000,
+                    ).toLocaleDateString()}`
+                  : 'Added to the current end date.'
+              }
+            />
+          ) : null}
+
+          {action === 'reinstate' ? (
+            <MuiTextField
+              label="New end date"
+              type="date"
+              value={expiresOn}
+              onChange={(e) => setExpiresOn(e.target.value)}
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          ) : null}
+
+          <MuiTextField
+            label="Reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            fullWidth
+            required
+            helperText="Recorded against the grant. Required."
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <MuiButton onClick={onClose}>Close</MuiButton>
+        <MuiButton
+          onClick={submit}
+          disabled={!reason.trim() || saving || (action === 'extend' && !Number(days))}
+          variant="contained"
+          color={copy.danger ? 'error' : 'primary'}
+        >
+          {saving ? 'Working…' : copy.verb}
+        </MuiButton>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const GrantRow = ({ grant, onDone }: { grant: any; onDone: () => void }) => {
+  const [action, setAction] = useState<GrantAction | null>(null);
+
+  // Which actions make sense depends on where the grant is: you cannot cancel
+  // something already cancelled, or reinstate something still running.
+  const live = grant.status === 'ACTIVE';
+  const suspended = grant.status === 'SUSPENDED';
+  const finished = grant.status === 'CANCELLED' || grant.status === 'EXPIRED';
+
+  return (
+    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+      <Typography variant="body2" sx={{ minWidth: 320 }}>
+        {grant.plan?.name} · {grant.status} · ends{' '}
+        {new Date(grant.expiresOn).toLocaleDateString()}
+        {grant.grantNote ? ` · ${grant.grantNote}` : ''}
+      </Typography>
+
+      {live ? <Button label="Extend" onClick={() => setAction('extend')} /> : null}
+      {live ? <Button label="Suspend" onClick={() => setAction('suspend')} /> : null}
+      {live || suspended ? <Button label="Cancel" onClick={() => setAction('cancel')} /> : null}
+      {suspended || finished ? (
+        <Button label="Reinstate" onClick={() => setAction('reinstate')} />
+      ) : null}
+
+      <GrantActionDialog
+        grant={grant}
+        action={action}
+        onClose={() => setAction(null)}
+        onDone={onDone}
+      />
+    </Stack>
+  );
+};
+
 const UserShowActions = () => {
   const record = useRecordContext();
   const refresh = useRefresh();
@@ -164,6 +334,20 @@ const UserShowActions = () => {
     <TopToolbar>
       <GrantDialog userId={record.id as string} onDone={refresh} />
     </TopToolbar>
+  );
+};
+
+const GrantHistory = () => {
+  const record = useRecordContext();
+  const refresh = useRefresh();
+  const grants = (record?.grants ?? []) as any[];
+  if (!grants.length) return <Typography variant="body2">—</Typography>;
+  return (
+    <Stack spacing={1}>
+      {grants.map((grant) => (
+        <GrantRow key={grant.id} grant={grant} onDone={refresh} />
+      ))}
+    </Stack>
   );
 };
 
@@ -184,24 +368,7 @@ export const UserShow = () => (
         }
       />
 
-      <FunctionField
-        label="Grant history"
-        render={(record: any) =>
-          (record.grants ?? []).length ? (
-            <Stack spacing={0.5}>
-              {record.grants.map((grant: any) => (
-                <Typography key={grant.id} variant="body2">
-                  {grant.plan?.name} · {grant.status} · expires{' '}
-                  {new Date(grant.expiresOn).toLocaleDateString()}
-                  {grant.grantNote ? ` · ${grant.grantNote}` : ''}
-                </Typography>
-              ))}
-            </Stack>
-          ) : (
-            '—'
-          )
-        }
-      />
+      <FunctionField label="Grant history" render={() => <GrantHistory />} />
     </SimpleShowLayout>
   </Show>
 );

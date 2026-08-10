@@ -21,6 +21,8 @@ type ResourceConfig = {
   unpaginated?: boolean;
   /** Reshape a single record — some endpoints wrap the row in an envelope. */
   transformOne?: (body: any) => any;
+  /** Reshape form values back into the payload the endpoint accepts. */
+  transformWrite?: (data: any) => any;
   /** Endpoints that upsert on PUT /path/:id rather than POST /path. */
   upsertById?: boolean;
 };
@@ -48,11 +50,96 @@ const RESOURCES: Record<string, ResourceConfig> = {
   plans: {
     path: '/plans',
   },
+  articles: {
+    path: '/admin/articles',
+    sortable: ['position', 'publishedAt', 'updatedAt', 'title'],
+  },
   reports: {
     path: '/admin/reports',
   },
   'delete-requests': {
     path: '/admin/delete-requests',
+  },
+  recipes: {
+    path: '/recipes',
+    // The API nests these for reading but accepts flat arrays for writing.
+    transformOne: (body) => ({
+      ...body,
+      ingredients: (body.ingredients ?? []).map((row: any) => ({
+        ingredientId: row.ingredientId,
+        qty: Number(row.qty),
+        unit: row.unit ?? '',
+        displayFormat: row.displayFormat ?? 'FRACTION',
+      })),
+      methods: [...(body.methods ?? [])]
+        .sort((a: any, b: any) => a.step - b.step)
+        .map((row: any) => row.text),
+      flavourBoosters: [...(body.flavourBoosters ?? [])]
+        .sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+        .map((row: any) => row.text),
+      dietPreferenceIds: (body.dietPreferences ?? []).map((row: any) => row.dietPreferenceId),
+      cookingStyleIds: (body.cookingStyles ?? []).map((row: any) => row.cookingStyleId),
+    }),
+    transformWrite: (data) => ({
+      name: data.name,
+      status: data.status,
+      image: data.image || null,
+      mealTypeId: data.mealTypeId ?? null,
+      kcal: Number(data.kcal),
+      protein: Number(data.protein),
+      carb: Number(data.carb),
+      fat: Number(data.fat),
+      fibre: Number(data.fibre),
+      servings: Number(data.servings ?? 2),
+      prepMinutes: data.prepMinutes === '' || data.prepMinutes == null ? null : Number(data.prepMinutes),
+      ingredients: (data.ingredients ?? [])
+        .filter((row: any) => row?.ingredientId)
+        .map((row: any) => ({
+          ingredientId: row.ingredientId,
+          qty: Number(row.qty ?? 0),
+          unit: row.unit || null,
+          displayFormat: row.displayFormat ?? 'FRACTION',
+        })),
+      methods: (data.methods ?? []).filter(Boolean),
+      flavourBoosters: (data.flavourBoosters ?? []).filter(Boolean),
+      dietPreferenceIds: data.dietPreferenceIds ?? [],
+      cookingStyleIds: data.cookingStyleIds ?? [],
+    }),
+  },
+  combos: {
+    path: '/combos',
+    transformOne: (body) => ({
+      ...body,
+      recipeIds: [...(body.recipes ?? [])]
+        .sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+        .map((row: any) => row.recipeId),
+    }),
+    transformWrite: (data) => ({
+      name: data.name,
+      notes: data.notes || null,
+      recipeIds: data.recipeIds ?? [],
+    }),
+  },
+  programs: {
+    path: '/programs',
+  },
+  'meal-types': {
+    path: '/meal-types',
+  },
+  'diet-preferences': {
+    path: '/diet-preferences',
+  },
+  'cooking-styles': {
+    path: '/cooking-styles',
+  },
+  'ingredient-categories': {
+    path: '/ingredient-categories',
+  },
+  ingredients: {
+    path: '/ingredients',
+  },
+  'post-tags': {
+    path: '/post-tags',
   },
 };
 
@@ -148,7 +235,8 @@ export const dataProvider: DataProvider = {
       return { data: withId(config, body) };
     }
 
-    const body = await request<any>(config.path, { method: 'POST', body: params.data });
+    const payload = config.transformWrite ? config.transformWrite(params.data) : params.data;
+    const body = await request<any>(config.path, { method: 'POST', body: payload });
     return { data: withId(config, body) };
   },
 
@@ -156,10 +244,11 @@ export const dataProvider: DataProvider = {
     const config = configFor(resource);
     const idKey = config.idKey ?? 'id';
     const { id: _id, [idKey]: _key, ...rest } = params.data as Record<string, unknown>;
+    const payload = config.transformWrite ? config.transformWrite(params.data) : rest;
 
     const body = await request<any>(`${config.path}/${params.id}`, {
       method: config.upsertById ? 'PUT' : 'PATCH',
-      body: rest,
+      body: payload,
     });
 
     return { data: withId(config, body) };
