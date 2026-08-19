@@ -21,7 +21,7 @@ const filters = [<SearchInput source="search" alwaysOn key="search" />];
 
 const NameList = ({ extra }: { extra?: string[] }) => (
   <List filters={filters} filter={{ includeInactive: true }} exporter={false}>
-    <Datagrid rowClick="edit">
+    <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="name" />
       {(extra ?? []).map((field) => (
         <TextField key={field} source={field} />
@@ -73,7 +73,7 @@ export const CategoryCreate = MealTypeCreate;
 
 export const IngredientList = () => (
   <List filters={filters} filter={{ includeInactive: true }} exporter={false}>
-    <Datagrid rowClick="edit">
+    <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="name" />
       <TextField source="baseUnit" label="Unit" />
       <TextField source="densityGPerMl" label="g/ml" />

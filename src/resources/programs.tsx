@@ -16,9 +16,13 @@ import {
 } from 'react-admin';
 import { ProgramDayMapper } from './programDays';
 
+/** An empty combo silently yields a day with no meals for everyone mapped to it. */
+const comboNeedsRecipes = (value: unknown) =>
+  Array.isArray(value) && value.length > 0 ? undefined : 'Add at least one recipe';
+
 export const ComboList = () => (
   <List exporter={false}>
-    <Datagrid rowClick="edit">
+    <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="name" />
       <FunctionField
         label="Recipes"
@@ -38,7 +42,7 @@ const ComboForm = () => (
   <SimpleForm>
     <TextInput source="name" validate={required()} fullWidth />
     <TextInput source="notes" fullWidth multiline />
-    <ReferenceArrayInput source="recipeIds" reference="recipes">
+    <ReferenceArrayInput source="recipeIds" reference="recipes" validate={comboNeedsRecipes}>
       <AutocompleteArrayInput
         optionText="name"
         label="Recipes, in the order they are eaten"
@@ -62,15 +66,19 @@ export const ComboCreate = () => (
 
 export const ProgramList = () => (
   <List exporter={false}>
-    <Datagrid rowClick="edit">
+    <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="name" />
       <NumberField source="totalDays" label="Days" />
       <FunctionField
         label="Mapped"
         render={(r: any) => {
-          const mapped = (r.programComboDays ?? r.days ?? []).length;
+          // The list endpoint returns mappedDays/isComplete; the day rows
+          // themselves only come back from getProgram. Reading the relation
+          // here always found nothing, so finished programmes were reported
+          // to the nutritionist as incomplete.
+          const mapped = r.mappedDays ?? 0;
           const total = r.totalDays ?? 0;
-          return mapped >= total && total > 0 ? `${mapped}/${total}` : `${mapped}/${total} incomplete`;
+          return r.isComplete ? `${mapped}/${total}` : `${mapped}/${total} incomplete`;
         }}
       />
       <TextField source="status" />

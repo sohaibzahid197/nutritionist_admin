@@ -29,7 +29,7 @@ const articleFilters = [
 
 export const ArticleList = () => (
   <List filters={articleFilters} exporter={false} sort={{ field: 'position', order: 'ASC' }}>
-    <Datagrid rowClick="edit">
+    <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="title" />
       <FunctionField
         label="Status"

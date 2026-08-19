@@ -3,6 +3,7 @@ import { dataProvider } from './dataProvider';
 import { authProvider } from './authProvider';
 import { rootsTheme } from './theme';
 import Login from './Login';
+import Dashboard from './Dashboard';
 import { UserList, UserShow } from './resources/users';
 import { SubscriptionList } from './resources/subscriptions';
 import { SettingList, SettingEdit, SettingCreate } from './resources/settings';
@@ -30,10 +31,11 @@ import {
 export default function App() {
   return (
     <Admin
-      title="Balanced Roots"
+      title="BiteSet"
       dataProvider={dataProvider}
       authProvider={authProvider}
       loginPage={Login}
+      dashboard={Dashboard}
       theme={rootsTheme}
       requireAuth
     >

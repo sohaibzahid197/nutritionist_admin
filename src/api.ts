@@ -1,5 +1,5 @@
 /**
- * Thin fetch wrapper over the Balanced Roots API.
+ * Thin fetch wrapper over the BiteSet API.
  *
  * Mirrors the mobile client's contract: bearer access token, single-flight refresh on a
  * 401, and a hard sign-out when the refresh itself fails.

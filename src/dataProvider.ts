@@ -2,7 +2,7 @@ import type { DataProvider, GetListParams } from 'react-admin';
 import { request, type Paginated } from './api';
 
 /**
- * Adapts the Balanced Roots API to React-Admin.
+ * Adapts the BiteSet API to React-Admin.
  *
  * Three mismatches to bridge:
  *   - lists answer `{ items, total, page, limit }`, React-Admin wants `{ data, total }`
@@ -160,7 +160,19 @@ const listQuery = (config: ResourceConfig, params: GetListParams) => {
   const { page = 1, perPage = 25 } = params.pagination ?? {};
   const { field, order } = params.sort ?? {};
 
-  const query: Record<string, unknown> = { ...params.filter };
+  const { q, ...filter } = params.filter ?? {};
+  const query: Record<string, unknown> = { ...filter };
+
+  /**
+   * React-Admin's autocomplete inputs send their typed text as `q`. Every list
+   * endpoint here calls that parameter `search`, and Joi validates with
+   * `stripUnknown`, so `q` was deleted server-side without an error: the
+   * dropdown appeared to filter but was only narrowing the first page it had
+   * already loaded. Anything past that page was unreachable — which is what
+   * made ingredients beyond the first 25 impossible to pick when authoring a
+   * recipe.
+   */
+  if (q) query.search = q;
 
   if (!config.unpaginated) {
     query.page = page;

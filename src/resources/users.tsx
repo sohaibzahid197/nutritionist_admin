@@ -55,7 +55,7 @@ const userFilters = [
 
 export const UserList = () => (
   <List filters={userFilters} sort={{ field: 'createdAt', order: 'DESC' }} exporter={false}>
-    <Datagrid rowClick="show">
+    <Datagrid bulkActionButtons={false} rowClick="show">
       <TextField source="name" />
       <EmailField source="email" />
       <TextField source="role" />

@@ -58,7 +58,7 @@ export default function Login() {
             mb: 0.5,
           }}
         >
-          Balanced Roots
+          BiteSet
         </Typography>
         <Typography sx={{ fontSize: 13.5, color: T.mute, mb: 3 }}>
           Sign in to the admin panel.

@@ -20,7 +20,7 @@ const filters = [<BooleanInput source="unresolvedOnly" label="Unresolved only" a
 
 export const SupportList = () => (
   <List filters={filters} filterDefaultValues={{ unresolvedOnly: true }} exporter={false}>
-    <Datagrid rowClick="show">
+    <Datagrid bulkActionButtons={false} rowClick="show">
       <TextField source="subject" />
       <TextField source="name" />
       <EmailField source="email" />

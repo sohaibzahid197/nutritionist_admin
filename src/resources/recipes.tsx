@@ -34,6 +34,14 @@ const filters = [
   </ReferenceInput>,
 ];
 
+/**
+ * The API accepts a recipe with an empty ingredient list, and the app then
+ * renders a dish nobody can shop for or cook. Cheaper to refuse here, where the
+ * author can still see what they missed.
+ */
+const atLeastOne = (noun: string) => (value: unknown) =>
+  Array.isArray(value) && value.length > 0 ? undefined : `Add at least one ${noun}`;
+
 export const RecipeList = () => (
   <List
     filters={filters}
@@ -41,7 +49,7 @@ export const RecipeList = () => (
     exporter={false}
     sort={{ field: 'name', order: 'ASC' }}
   >
-    <Datagrid rowClick="edit">
+    <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="name" />
       <ReferenceField source="mealTypeId" reference="meal-types" link={false} label="Meal type">
         <TextField source="name" />
@@ -101,7 +109,7 @@ const RecipeForm = () => (
       <AutocompleteArrayInput optionText="name" label="Cooking styles" fullWidth />
     </ReferenceArrayInput>
 
-    <ArrayInput source="ingredients">
+    <ArrayInput source="ingredients" validate={atLeastOne('ingredient')}>
       <SimpleFormIterator inline>
         <ReferenceInput source="ingredientId" reference="ingredients">
           <AutocompleteInput optionText="name" label="Ingredient" />
@@ -119,7 +127,7 @@ const RecipeForm = () => (
       </SimpleFormIterator>
     </ArrayInput>
 
-    <ArrayInput source="methods" label="Method steps">
+    <ArrayInput source="methods" label="Method steps" validate={atLeastOne('method step')}>
       <SimpleFormIterator>
         <TextInput source="" label="Step" multiline fullWidth />
       </SimpleFormIterator>

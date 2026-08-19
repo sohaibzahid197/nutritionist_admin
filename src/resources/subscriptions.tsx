@@ -38,7 +38,7 @@ const filters = [
 
 export const SubscriptionList = () => (
   <List filters={filters} sort={{ field: 'expiresOn', order: 'ASC' }} exporter={false}>
-    <Datagrid rowClick={false}>
+    <Datagrid bulkActionButtons={false} rowClick={false}>
       <FunctionField label="User" render={(r: any) => r.user?.email ?? r.userId} />
       <FunctionField label="Plan" render={(r: any) => r.plan?.name ?? '—'} />
       <TextField source="status" />

@@ -30,7 +30,7 @@ const KNOWN_KEYS = [
 
 export const SettingList = () => (
   <List perPage={100} pagination={false} exporter={false}>
-    <Datagrid rowClick="edit">
+    <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="key" />
       <TextField source="value" />
       <BooleanField source="isPublic" label="Public" />

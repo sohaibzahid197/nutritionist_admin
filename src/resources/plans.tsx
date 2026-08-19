@@ -16,7 +16,7 @@ import {
 
 export const PlanList = () => (
   <List exporter={false} sort={{ field: 'price', order: 'ASC' }}>
-    <Datagrid rowClick="edit">
+    <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="name" />
       <NumberField source="price" />
       <TextField source="currency" />

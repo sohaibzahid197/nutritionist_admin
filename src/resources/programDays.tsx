@@ -36,7 +36,30 @@ export const ProgramDayMapper = () => {
   const programId = record?.id as string | undefined;
   const totalDays = Number(record?.totalDays ?? 0);
 
-  const buildDays = useCallback((program: any, total: number): DayRow[] => {
+  /**
+ * Every combo, not the first hundred.
+ *
+ * The picker used to request `limit: 100` — which is also the API's hard
+ * maximum — so combo 101 could never be assigned to a day, with nothing on
+ * screen to say so. Paging is the only way to stay correct as the library
+ * grows; the loop is bounded by `total` so it cannot spin.
+ */
+const COMBO_PAGE = 100;
+
+const fetchAllCombos = async (): Promise<Combo[]> => {
+  const out: Combo[] = [];
+  for (let page = 1; ; page += 1) {
+    const body = await request<{ items: Combo[]; total?: number }>('/combos', {
+      query: { page, limit: COMBO_PAGE },
+    });
+    const items = body.items ?? [];
+    out.push(...items);
+    const total = typeof body.total === 'number' ? body.total : out.length;
+    if (items.length < COMBO_PAGE || out.length >= total) return out;
+  }
+};
+
+const buildDays = useCallback((program: any, total: number): DayRow[] => {
     const mapped = new Map<number, any>();
     for (const row of program?.programComboDays ?? []) mapped.set(row.day, row);
     return Array.from({ length: total }, (_, i) => {
@@ -57,11 +80,11 @@ export const ProgramDayMapper = () => {
     }
     setLoading(true);
     try {
-      const [comboBody, program] = await Promise.all([
-        request<{ items: Combo[] }>('/combos', { query: { limit: 100 } }),
+      const [combos, program] = await Promise.all([
+        fetchAllCombos(),
         request<any>(`/programs/${programId}`),
       ]);
-      setCombos(comboBody.items ?? []);
+      setCombos(combos);
       setDays(buildDays(program, totalDays));
     } catch (err) {
       notify((err as Error).message, { type: 'error' });
@@ -96,23 +119,41 @@ export const ProgramDayMapper = () => {
             : d,
         ),
       );
+      return true;
     } catch (err) {
       notify((err as Error).message, { type: 'error' });
+      return false;
     } finally {
       setSaving(null);
     }
   };
 
+  /**
+   * Reports what actually happened. This used to announce the full count as
+   * filled no matter what: each write swallowed its own error, so a run that
+   * failed halfway still ended with a success toast and a programme the author
+   * believed was complete.
+   */
   const fillEmpty = async () => {
     if (!bulkCombo || !programId) return;
     const targets = days.filter((d) => !d.comboId).map((d) => d.day);
+    const failed: number[] = [];
+
     for (const day of targets) {
       // eslint-disable-next-line no-await-in-loop
-      await setDay(day, bulkCombo);
+      const ok = await setDay(day, bulkCombo);
+      if (!ok) failed.push(day);
     }
-    notify(`Filled ${targets.length} empty day${targets.length === 1 ? '' : 's'}`, {
-      type: 'success',
-    });
+
+    const filled = targets.length - failed.length;
+    if (failed.length) {
+      notify(
+        `Filled ${filled} of ${targets.length}. Day${failed.length === 1 ? '' : 's'} ${failed.join(', ')} failed.`,
+        { type: 'warning' },
+      );
+    } else {
+      notify(`Filled ${filled} empty day${filled === 1 ? '' : 's'}`, { type: 'success' });
+    }
     refresh();
   };
 
