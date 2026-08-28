@@ -13,6 +13,7 @@ import { ArticleList, ArticleEdit, ArticleCreate } from './resources/articles';
 import { RecipeList, RecipeEdit, RecipeCreate } from './resources/recipes';
 import { ComboList, ComboEdit, ComboCreate, ProgramList, ProgramEdit, ProgramCreate } from './resources/programs';
 import { PlanList, PlanEdit, PlanCreate } from './resources/plans';
+import { NotificationSend } from './resources/notifications';
 import {
   CategoryCreate,
   CategoryEdit,
@@ -41,6 +42,8 @@ export default function App() {
     >
       <Resource name="users" list={UserList} show={UserShow} recordRepresentation="email" />
       <Resource name="subscriptions" list={SubscriptionList} options={{ label: 'Subscriptions' }} />
+      {/* Not a CRUD resource — the send form and its history are one screen. */}
+      <Resource name="notifications" list={NotificationSend} options={{ label: 'Notifications' }} />
       <Resource name="plans" list={PlanList} edit={PlanEdit} create={PlanCreate} recordRepresentation="name" />
 
       <Resource
