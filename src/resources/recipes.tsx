@@ -21,6 +21,7 @@ import {
   useRecordContext,
 } from 'react-admin';
 import { Typography } from '@mui/material';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 const STATUS = [
   { id: 'ACTIVE', name: 'Active' },
@@ -99,7 +100,7 @@ const RecipeForm = () => (
     <NumberInput source="fibre" validate={required()} min={0} />
     <NumberInput source="servings" min={1} max={12} defaultValue={2} />
     <NumberInput source="prepMinutes" min={0} />
-    <TextInput source="image" fullWidth />
+    <ImageUploadInput source="image" label="Photo address" />
 
     <ReferenceArrayInput source="dietPreferenceIds" reference="diet-preferences">
       <AutocompleteArrayInput optionText="name" label="Diet preferences" fullWidth />

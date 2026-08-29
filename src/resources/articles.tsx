@@ -14,6 +14,7 @@ import {
   required,
 } from 'react-admin';
 import { Alert, Typography } from '@mui/material';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 const articleFilters = [
   <SearchInput source="search" alwaysOn key="search" />,
@@ -68,10 +69,10 @@ const ArticleForm = ({ creating = false }: { creating?: boolean }) => (
       helperText="Optional. Leave empty to use the opening paragraph."
     />
 
-    <TextInput
+    <ImageUploadInput
       source="image"
-      fullWidth
-      helperText="Optional cover image URL. Upload it first, then paste the address here."
+      label="Cover photo address"
+      helperText="Optional. Landscape images work best on the article card."
     />
 
     <SelectInput

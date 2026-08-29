@@ -107,13 +107,20 @@ const buildUrl = (path: string, query?: Record<string, unknown>) => {
 };
 
 const send = async (path: string, options: RequestOptions, token: string | null) => {
+  /**
+   * A file upload must go as multipart, and the browser has to write that
+   * header itself because only it knows the boundary string. Setting
+   * content-type by hand here produced a body the server could not parse.
+   */
+  const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
   const response = await fetch(buildUrl(path, options.query), {
     method: options.method ?? 'GET',
     headers: {
-      ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
+      ...(options.body === undefined || isForm ? {} : { 'content-type': 'application/json' }),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: options.body === undefined ? undefined : isForm ? (options.body as FormData) : JSON.stringify(options.body),
   });
 
   return { response, body: await parse(response) };
