@@ -14,6 +14,7 @@ import {
   TopToolbar,
   useNotify,
   useRecordContext,
+  useRedirect,
   useRefresh,
 } from 'react-admin';
 import {
@@ -326,6 +327,114 @@ const GrantRow = ({ grant, onDone }: { grant: any; onDone: () => void }) => {
   );
 };
 
+/**
+ * Erasing an account, as opposed to hiding it.
+ *
+ * The panel's existing delete is a flag: the person disappears from lists but
+ * their row, their posts and their weigh-ins stay in the database. This is the
+ * other thing — the one to reach for when somebody has asked to be forgotten,
+ * or a test account should stop existing. It cannot be undone, so the
+ * administrator types the address rather than clicking twice, and the server
+ * checks it against the record before acting.
+ */
+const DeleteForeverDialog = ({ record }: { record: any }) => {
+  const notify = useNotify();
+  const redirect = useRedirect();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [working, setWorking] = useState(false);
+
+  const email = String(record.email ?? '');
+  const isAdmin = record.role === 'ADMIN';
+  const matches = typed.trim().toLowerCase() === email.toLowerCase();
+
+  const close = () => {
+    setOpen(false);
+    setTyped('');
+  };
+
+  const submit = async () => {
+    setWorking(true);
+    try {
+      const res = await request<{
+        removed: { posts: number; comments: number; weighIns: number; grants: number; photos: number };
+        orphanedFiles: number;
+      }>(`/admin/users/${record.id}/permanent-delete`, {
+        method: 'POST',
+        body: { confirmEmail: typed.trim() },
+      });
+
+      const { posts, comments, weighIns, grants } = res.removed;
+      notify(
+        `${email} deleted — ${posts} posts, ${comments} comments, ${weighIns} weigh-ins, ${grants} subscriptions.`,
+        { type: 'success' },
+      );
+      if (res.orphanedFiles) {
+        notify(`${res.orphanedFiles} image files could not be removed from storage.`, {
+          type: 'warning',
+        });
+      }
+
+      close();
+      // The record no longer exists, so staying on its page would 404.
+      redirect('list', 'users');
+    } catch (err) {
+      notify((err as Error).message, { type: 'error' });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <>
+      <Button label="Delete permanently" onClick={() => setOpen(true)} sx={{ color: 'error.main' }} />
+
+      <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
+        <DialogTitle>Delete {record.name || email} permanently?</DialogTitle>
+        <DialogContent>
+          {isAdmin ? (
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              This account is an administrator and cannot be deleted. Change its role to User
+              first, so losing your last administrator always takes two decisions.
+            </Typography>
+          ) : (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Typography variant="body2">
+                This removes the account from the database along with everything belonging to it —
+                posts, comments, weigh-ins, saved recipes, photographs, notifications and
+                subscription history. Their uploaded images are deleted from storage too.
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                There is no undo. To hide someone instead while keeping their data, use the
+                ordinary delete, which can be reversed.
+              </Typography>
+              <MuiTextField
+                label="Type the account's email to confirm"
+                placeholder={email}
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                fullWidth
+                autoComplete="off"
+              />
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <MuiButton onClick={close}>Cancel</MuiButton>
+          <MuiButton
+            onClick={submit}
+            disabled={isAdmin || !matches || working}
+            variant="contained"
+            color="error"
+          >
+            {working ? 'Deleting…' : 'Delete permanently'}
+          </MuiButton>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
+
 const UserShowActions = () => {
   const record = useRecordContext();
   const refresh = useRefresh();
@@ -333,6 +442,7 @@ const UserShowActions = () => {
   return (
     <TopToolbar>
       <GrantDialog userId={record.id as string} onDone={refresh} />
+      <DeleteForeverDialog record={record} />
     </TopToolbar>
   );
 };
