@@ -447,6 +447,44 @@ const UserShowActions = () => {
   );
 };
 
+/**
+ * Whether the programme can actually reach this person's calorie target.
+ *
+ * Portions scale to the subscriber, but only within a clamp, because the
+ * multiplier is a plate somebody has to eat. Someone large or building muscle
+ * can sit above the ceiling and quietly receive a day that falls hundreds of
+ * calories short — indistinguishable, from the outside, from them under-eating.
+ * The answer is content written at their level, not a looser clamp, so this
+ * says plainly when that content is missing.
+ */
+const PortionFit = () => {
+  const record = useRecordContext();
+  const fit = (record as any)?.portionFit;
+
+  if (!fit) return <Typography variant="body2">—</Typography>;
+
+  const over = fit.shortfallKcal > 0;
+  return (
+    <Stack spacing={0.5}>
+      <Typography variant="body2">
+        {fit.programName}: {fit.authoredDayKcal} kcal authored × {fit.portionFactor} ={' '}
+        <strong>{fit.servedKcal} kcal</strong> served, against a {fit.targetKcal} kcal target.
+      </Typography>
+      {fit.isClamped ? (
+        <Typography variant="body2" color={over ? 'error.main' : 'warning.main'}>
+          {over
+            ? `Short by ${fit.shortfallKcal} kcal every day — the portion ceiling has been reached. This subscriber needs a higher-calorie programme.`
+            : `Over by ${Math.abs(fit.shortfallKcal)} kcal every day — the portion floor has been reached. This subscriber needs a lighter programme.`}
+        </Typography>
+      ) : (
+        <Typography variant="body2" color="success.main">
+          Target met exactly.
+        </Typography>
+      )}
+    </Stack>
+  );
+};
+
 const GrantHistory = () => {
   const record = useRecordContext();
   const refresh = useRefresh();
@@ -477,6 +515,8 @@ export const UserShow = () => (
             : (record.entitlement?.status ?? 'NONE')
         }
       />
+
+      <FunctionField label="Does the plan feed them?" render={() => <PortionFit />} />
 
       <FunctionField label="Grant history" render={() => <GrantHistory />} />
     </SimpleShowLayout>
