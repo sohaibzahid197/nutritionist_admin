@@ -102,6 +102,18 @@ const RecipeForm = () => (
     <NumberInput source="prepMinutes" min={0} />
     <ImageUploadInput source="image" label="Photo address" />
 
+    {/* Shown to the subscriber on the dish itself. Written in the nutritionist's
+        own voice — the reason this plate, for this person, today. No competitor
+        at the top of the store shows anything like it. */}
+    <TextInput
+      source="note"
+      label="Why this dish"
+      multiline
+      rows={3}
+      fullWidth
+      helperText="Shown under the dish in the app. e.g. “The oats and seeds here are what keep you full to lunch on a cut.”"
+    />
+
     <ReferenceArrayInput source="dietPreferenceIds" reference="diet-preferences">
       <AutocompleteArrayInput optionText="name" label="Diet preferences" fullWidth />
     </ReferenceArrayInput>
