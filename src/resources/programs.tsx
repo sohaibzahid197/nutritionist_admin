@@ -13,17 +13,47 @@ import {
   TextField,
   TextInput,
   required,
+  useRecordContext,
 } from 'react-admin';
+import { Box, Chip, Typography } from '@mui/material';
 import { ProgramDayMapper } from './programDays';
 
 /** An empty combo silently yields a day with no meals for everyone mapped to it. */
 const comboNeedsRecipes = (value: unknown) =>
   Array.isArray(value) && value.length > 0 ? undefined : 'Add at least one recipe';
 
+/**
+ * Where a combo sits, taken from its first programme placement.
+ *
+ * A combo on its own is four anonymous dishes. Editing one without knowing it
+ * is Tuesday of the live programme is how somebody changes what a subscriber
+ * eats tomorrow by accident.
+ */
+const Placement = () => {
+  const record = useRecordContext();
+  const placement = (record as any)?.programComboDays?.[0];
+  if (!placement) {
+    return (
+      <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+        Not in a programme
+      </Typography>
+    );
+  }
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, whiteSpace: 'nowrap' }}>
+      <Chip label={placement.program.name} size="small" />
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        day {placement.day}
+      </Typography>
+    </Box>
+  );
+};
+
 export const ComboList = () => (
-  <List exporter={false}>
+  <List exporter={false} sort={{ field: 'name', order: 'ASC' }}>
     <Datagrid bulkActionButtons={false} rowClick="edit">
       <TextField source="name" />
+      <FunctionField label="Programme" render={() => <Placement />} />
       <FunctionField
         label="Recipes"
         render={(r: any) =>
