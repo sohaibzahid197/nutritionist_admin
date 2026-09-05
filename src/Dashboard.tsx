@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Box, Card, CardContent, Typography, LinearProgress, Alert } from '@mui/material';
+import { Box, Card, CardContent, Typography, LinearProgress, Alert, Divider } from '@mui/material';
+import PeopleIcon from '@mui/icons-material/PeopleAltOutlined';
+import PersonOffIcon from '@mui/icons-material/PersonOffOutlined';
+import CheckIcon from '@mui/icons-material/TaskAltOutlined';
+import FlagIcon from '@mui/icons-material/FlagOutlined';
+import RestaurantIcon from '@mui/icons-material/RestaurantOutlined';
+import CalendarIcon from '@mui/icons-material/CalendarMonthOutlined';
+import BoltIcon from '@mui/icons-material/BoltOutlined';
 import { Title } from 'react-admin';
 import { request } from './api';
 import { T } from './theme';
@@ -34,23 +41,77 @@ type Dashboard = {
   } | null;
 };
 
-const Stat = ({ label, value, hint, tone }: {
+const Stat = ({ label, value, hint, tone, icon, bar }: {
   label: string;
   value: string | number;
   hint?: string;
-  tone?: 'plain' | 'warn';
-}) => (
-  <Card sx={{ flex: '1 1 200px', minWidth: 200 }}>
-    <CardContent>
-      <Typography variant="body2" sx={{ color: T.mute, textTransform: 'uppercase', letterSpacing: '.06em', fontSize: 11 }}>
-        {label}
-      </Typography>
-      <Typography sx={{ fontSize: 30, lineHeight: 1.2, color: tone === 'warn' ? T.danger : T.ink }}>
-        {value}
-      </Typography>
-      {hint ? <Typography variant="body2" sx={{ color: T.dim, mt: 0.5 }}>{hint}</Typography> : null}
-    </CardContent>
-  </Card>
+  tone?: 'plain' | 'warn' | 'good';
+  icon: React.ReactNode;
+  /** 0-100. Draws a progress rule under the number when the figure is a share of something. */
+  bar?: number;
+}) => {
+  const accent = tone === 'warn' ? T.danger : tone === 'good' ? T.acc : T.ink;
+  return (
+    <Card
+      sx={{
+        flex: '1 1 210px',
+        minWidth: 210,
+        borderColor: T.line,
+        // The stripe carries the state, so a problem is visible before the
+        // number is read.
+        borderTop: `3px solid ${tone === 'warn' ? T.danger : tone === 'good' ? T.acc : T.line}`,
+      }}
+    >
+      <CardContent sx={{ pb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25 }}>
+          <Box
+            sx={{
+              width: 30, height: 30, borderRadius: '8px',
+              display: 'grid', placeItems: 'center',
+              bgcolor: tone === 'warn' ? '#F7E7E2' : T.accBg,
+              color: tone === 'warn' ? T.danger : T.accLt,
+              '& svg': { fontSize: 17 },
+            }}
+          >
+            {icon}
+          </Box>
+          <Typography
+            sx={{ color: T.mute, textTransform: 'uppercase', letterSpacing: '.07em', fontSize: 10.5, fontWeight: 600 }}
+          >
+            {label}
+          </Typography>
+        </Box>
+
+        <Typography sx={{ fontSize: 34, lineHeight: 1.05, color: accent, fontVariantNumeric: 'tabular-nums' }}>
+          {value}
+        </Typography>
+
+        {typeof bar === 'number' ? (
+          <Box sx={{ mt: 1.25, height: 4, borderRadius: 2, bgcolor: T.well, overflow: 'hidden' }}>
+            <Box sx={{ width: `${Math.max(2, Math.min(100, bar))}%`, height: '100%', bgcolor: accent }} />
+          </Box>
+        ) : null}
+
+        {hint ? (
+          <Typography variant="body2" sx={{ color: T.dim, mt: typeof bar === 'number' ? 0.75 : 0.5 }}>
+            {hint}
+          </Typography>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+};
+
+/** A quiet rule with a word on it, so the tiles below read as a set. */
+const GroupLabel = ({ children }: { children: React.ReactNode }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 3.5, mb: 1.5 }}>
+    <Typography
+      sx={{ color: T.mute, textTransform: 'uppercase', letterSpacing: '.09em', fontSize: 10.5, fontWeight: 600, whiteSpace: 'nowrap' }}
+    >
+      {children}
+    </Typography>
+    <Divider sx={{ flex: 1, borderColor: T.line }} />
+  </Box>
 );
 
 const relative = (iso: string | null) => {
@@ -100,7 +161,7 @@ export default function Dashboard() {
   const meals = data.mealTracking;
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: { xs: 1.5, sm: 2.5 }, pb: 6, maxWidth: 1180 }}>
       <Title title="Overview" />
 
       {genStale ? (
@@ -117,15 +178,31 @@ export default function Dashboard() {
         </Alert>
       ) : null}
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-        <Stat label="Subscribers" value={data.activeSubscribedUsers} hint={`${data.totalUsers} accounts total`} />
-        <Stat label="No plan" value={data.nonSubscribedUsers} hint="signed up, not subscribed" />
+      <GroupLabel>People</GroupLabel>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
         <Stat
-          label="Adherence this week"
-          value={meals ? `${meals.adherencePct}%` : '—'}
-          hint={meals ? `${meals.eatenMeals} of ${meals.plannedMealsToDate} meals ticked` : undefined}
+          icon={<PeopleIcon />}
+          label="Subscribers"
+          value={data.activeSubscribedUsers}
+          hint={`${data.totalUsers} accounts total`}
+          tone="good"
+          bar={data.totalUsers ? (data.activeSubscribedUsers / data.totalUsers) * 100 : 0}
         />
         <Stat
+          icon={<PersonOffIcon />}
+          label="No plan"
+          value={data.nonSubscribedUsers}
+          hint="signed up, not subscribed"
+        />
+        <Stat
+          icon={<CheckIcon />}
+          label="Adherence this week"
+          value={meals ? `${meals.adherencePct}%` : '—'}
+          hint={meals ? `${meals.eatenMeals} of ${meals.plannedMealsToDate} meals ticked` : 'no plan days yet'}
+          bar={meals?.adherencePct}
+        />
+        <Stat
+          icon={<FlagIcon />}
           label="Open reports"
           value={data.openReports}
           hint={data.openReports ? 'waiting on a decision' : 'nothing to moderate'}
@@ -133,14 +210,16 @@ export default function Dashboard() {
         />
       </Box>
 
+      <GroupLabel>Content and delivery</GroupLabel>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-        <Stat label="Recipes" value={data.recipes} hint="in the library" />
-        <Stat label="Programmes" value={data.programs} hint="published plans" />
+        <Stat icon={<RestaurantIcon />} label="Recipes" value={data.recipes} hint="in the library" />
+        <Stat icon={<CalendarIcon />} label="Programmes" value={data.programs} hint="published plans" />
         <Stat
+          icon={<BoltIcon />}
           label="Last generation"
           value={gen?.status === 'SUCCESS' ? 'OK' : (gen?.status ?? 'never run')}
           hint={relative(gen?.finishedAt ?? null)}
-          tone={genStale || gen?.status !== 'SUCCESS' ? 'warn' : 'plain'}
+          tone={genStale || gen?.status !== 'SUCCESS' ? 'warn' : 'good'}
         />
       </Box>
     </Box>
